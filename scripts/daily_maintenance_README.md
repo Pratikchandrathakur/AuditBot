@@ -23,3 +23,29 @@ Clone the repository and navigate to the scripts folder:
 ```bash
 git clone [https://github.com/YourUsername/AuditBot.git](https://github.com/YourUsername/AuditBot.git)
 cd AuditBot/scripts
+```
+### 2. Automation (Cron Job)
+ To run this script automatically every day at 3:00 AM:
+
+Open crontab:
+
+```Bash
+
+crontab -e
+Add the following line:
+```
+```Bash
+
+0 3 * * * /path/to/your/daily_maintenance.sh
+```
+### 3.📂 Configuration
+You can customize the following variables at the top of the script:
+
+- BACKUP_DIR: Destination for backup files.
+
+- SOURCE_DIR: The directory to back up.
+
+- LOG_FILE: Location of the log file.
+
+⚠️ Disclaimer
+This script is designed for Ubuntu/Debian systems. Always test backups in a non-production environment before deploying.
