@@ -1,6 +1,6 @@
 
 import socket
-domain=input("Enter the domain to scan")
+domain=input("Enter the domain to scan ")
 print("Starting Port Scanner")
 ip = socket.gethostbyname(domain)
 print(f"Scanning {domain} ({ip})")
@@ -13,3 +13,4 @@ for port in ports:
     result = s.connect_ex((ip, port))
     print(f"Port {port}: {'OPEN' if result == 0 else 'CLOSED'}")
     s.close()
+print("Scanning Completed")
