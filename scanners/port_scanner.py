@@ -1,5 +1,5 @@
 
-import socket
+import socket,errno
 domain=input("Enter the domain to scan ")
 print("Starting Port Scanner")
 ip = socket.gethostbyname(domain)
@@ -11,6 +11,11 @@ for port in ports:
     s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     s.settimeout(1)
     result = s.connect_ex((ip, port))
-    print(f"Port {port}: {'OPEN' if result == 0 else 'CLOSED'}")
+    if result==0:
+        print(f"[OPEN] Port {port}")
+    elif result==errno.ETIMEDOUT:
+        print(f"[FILTERED] Port {port}")
+    else:
+        print(f"[CLOSED] Port {port}")
     s.close()
 print("Scanning Completed")
