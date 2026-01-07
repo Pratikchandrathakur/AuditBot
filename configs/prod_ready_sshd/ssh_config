@@ -1,0 +1,332 @@
+# =============================================================================
+# AuditBot SSH Hardening Configuration - Production Grade
+# =============================================================================
+# Last Updated: 2026-01-07
+# Security Level: MAXIMUM
+# Compliance: CIS Benchmark, NIST SP 800-52, PCI DSS
+# =============================================================================
+
+# This is the sshd server system-wide configuration file.  See
+# sshd_config(5) for more information.
+
+# This sshd was compiled with PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:/usr/games
+
+# The strategy used for options in the default sshd_config shipped with
+# OpenSSH is to specify options with their default value where
+# possible, but leave them commented.  Uncommented options override the
+# default value.
+
+Include /etc/ssh/sshd_config.d/*.conf
+
+# =============================================================================
+# NETWORK CONFIGURATION
+# =============================================================================
+
+# Port Configuration
+# Default:  22
+# Security Note: Consider changing to non-standard port (e.g., 2222) to reduce automated attacks
+Port 22
+
+# Address Family
+# Options: any, inet (IPv4), inet6 (IPv6)
+# Security:  Restrict to inet if IPv6 not needed
+AddressFamily any
+
+# Listen Address
+# Default: All interfaces (0.0.0.0 and :: )
+# Security: Bind to specific IP if possible to limit exposure
+#ListenAddress 0.0.0.0
+#ListenAddress ::
+
+# =============================================================================
+# HOST KEY CONFIGURATION
+# =============================================================================
+
+# Host Keys - Use only modern, secure algorithms
+# Disabled:  RSA (legacy, prefer Ed25519 or ECDSA)
+#HostKey /etc/ssh/ssh_host_rsa_key
+HostKey /etc/ssh/ssh_host_ecdsa_key
+HostKey /etc/ssh/ssh_host_ed25519_key
+
+# =============================================================================
+# CRYPTOGRAPHY SETTINGS
+# =============================================================================
+
+# Ciphers and keying
+# Security: Force key renegotiation to limit data encrypted with same key
+RekeyLimit 512M 1h
+
+# Key Exchange Algorithms (KEX) - Only modern, secure algorithms
+# Removed: diffie-hellman-group1-sha1, diffie-hellman-group14-sha1 (weak)
+KexAlgorithms curve25519-sha256,curve25519-sha256@libssh.org,diffie-hellman-group-exchange-sha256
+
+# Ciphers - Only strong, authenticated encryption
+# Removed: AES-CBC (vulnerable to certain attacks), 3DES, Arcfour
+Ciphers chacha20-poly1305@openssh.com,aes256-gcm@openssh.com,aes128-gcm@openssh.com,aes256-ctr,aes192-ctr,aes128-ctr
+
+# Message Authentication Codes (MAC) - Only secure HMACs
+# Removed: MD5, SHA1-based MACs (weak)
+MACs hmac-sha2-512-etm@openssh.com,hmac-sha2-256-etm@openssh.com,hmac-sha2-512,hmac-sha2-256
+
+# =============================================================================
+# LOGGING CONFIGURATION
+# =============================================================================
+
+# Logging Facility
+SyslogFacility AUTH
+
+# Log Level
+# Options:  QUIET, FATAL, ERROR, INFO, VERBOSE, DEBUG, DEBUG1, DEBUG2, DEBUG3
+# Security:  VERBOSE logs key fingerprints for audit trail
+LogLevel VERBOSE
+
+# =============================================================================
+# AUTHENTICATION SETTINGS
+# =============================================================================
+
+# Login Grace Time - Time to authenticate before disconnect
+# Default: 2m (120 seconds)
+# Security: Reduce to 60s to limit DoS exposure
+LoginGraceTime 60
+
+# Root Login - CRITICAL SECURITY SETTING
+# Options: yes, prohibit-password, forced-commands-only, no
+# CHANGED FROM: prohibit-password
+# CHANGED TO: no (complete block)
+# Security: Root should NEVER login directly, use sudo from regular account
+PermitRootLogin no
+
+# Strict Modes - Check file permissions before accepting login
+# Security: Prevent logins if permissions are insecure
+StrictModes yes
+
+# Maximum Authentication Attempts
+# CHANGED FROM: 6
+# CHANGED TO: 3
+# Security: Reduce brute-force window
+MaxAuthTries 3
+
+# Maximum Concurrent Sessions
+# Security: Limit to 10 to prevent resource exhaustion
+MaxSessions 10
+
+# =============================================================================
+# PUBLIC KEY AUTHENTICATION
+# =============================================================================
+
+# Public Key Authentication - PRIMARY AUTHENTICATION METHOD
+PubkeyAuthentication yes
+
+# Authorized Keys File Location
+AuthorizedKeysFile .ssh/authorized_keys
+
+# Public Key Accepted Types - Only modern, secure algorithms
+# Security: Prefer Ed25519 > ECDSA > RSA-SHA2
+PubkeyAcceptedKeyTypes ssh-ed25519,ssh-ed25519-cert-v01@openssh.com,ecdsa-sha2-nistp256,ecdsa-sha2-nistp384,ecdsa-sha2-nistp521,rsa-sha2-512,rsa-sha2-256
+
+# Authorized Principals File
+#AuthorizedPrincipalsFile none
+
+# Authorized Keys Command (for dynamic key lookup)
+#AuthorizedKeysCommand none
+#AuthorizedKeysCommandUser nobody
+
+# =============================================================================
+# HOST-BASED AUTHENTICATION
+# =============================================================================
+
+# Host-based Authentication - DISABLED for security
+HostbasedAuthentication no
+
+# Ignore known_hosts for host-based authentication
+IgnoreUserKnownHosts yes
+
+# Ignore rhosts/shosts files (legacy authentication)
+IgnoreRhosts yes
+
+# =============================================================================
+# PASSWORD AUTHENTICATION
+# =============================================================================
+
+# Password Authentication - DISABLED (Use keys only)
+# Security: Eliminates password-based attacks
+PasswordAuthentication no
+
+# Empty Passwords - DISABLED
+PermitEmptyPasswords no
+
+# Challenge-Response Authentication - DISABLED
+# Security: Prevents keyboard-interactive attacks
+KbdInteractiveAuthentication no
+
+# =============================================================================
+# KERBEROS AUTHENTICATION
+# =============================================================================
+
+# Kerberos options - DISABLED (not in use)
+KerberosAuthentication no
+#KerberosOrLocalPasswd yes
+#KerberosTicketCleanup yes
+#KerberosGetAFSToken no
+
+# =============================================================================
+# GSSAPI AUTHENTICATION
+# =============================================================================
+
+# GSSAPI options - DISABLED (not in use)
+GSSAPIAuthentication no
+#GSSAPICleanupCredentials yes
+#GSSAPIStrictAcceptorCheck yes
+#GSSAPIKeyExchange no
+
+# =============================================================================
+# PAM CONFIGURATION
+# =============================================================================
+
+# PAM (Pluggable Authentication Modules)
+# Security: Enables account and session checks
+UsePAM yes
+
+# =============================================================================
+# FORWARDING AND TUNNELING
+# =============================================================================
+
+# Agent Forwarding
+# CHANGED TO: no (unless specifically needed)
+# Security: Prevents agent hijacking attacks
+AllowAgentForwarding no
+
+# TCP Forwarding
+# CHANGED TO: no (unless specifically needed)
+# Security: Prevents SSH tunneling for malicious purposes
+AllowTcpForwarding no
+
+# Gateway Ports
+# Security: Prevents remote hosts from connecting to forwarded ports
+GatewayPorts no
+
+# X11 Forwarding
+# CHANGED FROM: yes
+# CHANGED TO:  no
+# Security: X11 has known vulnerabilities, disable if not needed
+X11Forwarding no
+
+#X11DisplayOffset 10
+#X11UseLocalhost yes
+
+# Permit TTY
+PermitTTY yes
+
+# Tunnel Device Forwarding
+# Security: Disable VPN-like tunneling
+PermitTunnel no
+
+# =============================================================================
+# SESSION CONFIGURATION
+# =============================================================================
+
+# Print Message of the Day
+# Disabled: Using /etc/motd via PAM instead
+PrintMotd no
+
+# Print Last Login
+# Security: Show last login time for anomaly detection
+PrintLastLog yes
+
+# TCP Keep Alive
+# Security: Detect and close dead connections
+TCPKeepAlive yes
+
+# Client Alive Interval
+# Security:  Disconnect idle sessions after timeout
+# 300 seconds (5 minutes) * 3 = 15 minutes total
+ClientAliveInterval 300
+ClientAliveCountMax 3
+
+# Permit User Environment
+# Security: Prevent users from modifying environment variables
+PermitUserEnvironment no
+
+# Compression
+# Security: Delay compression until after authentication
+Compression delayed
+
+# DNS Lookup
+# Performance: Disable reverse DNS lookup (faster login)
+UseDNS no
+
+# PID File Location
+PidFile /run/sshd.pid
+
+# =============================================================================
+# CONNECTION LIMITS
+# =============================================================================
+
+# Maximum Startup Connections
+# Format: start: rate:full
+# 10 concurrent unauthenticated connections, drop 30% after that, max 100
+MaxStartups 10:30:100
+
+# =============================================================================
+# CHROOT AND ISOLATION
+# =============================================================================
+
+# Chroot Directory (for SFTP-only users)
+#ChrootDirectory none
+
+# Version String
+# Security: Don't advertise exact OpenSSH version
+#VersionAddendum none
+
+# =============================================================================
+# BANNER
+# =============================================================================
+
+# Login Banner
+# Security: Display legal notice before authentication
+# Uncomment and point to your banner file
+#Banner /etc/ssh/banner.txt
+
+# =============================================================================
+# ENVIRONMENT VARIABLES
+# =============================================================================
+
+# Allow client to pass locale environment variables
+AcceptEnv LANG LC_*
+
+# =============================================================================
+# SUBSYSTEMS
+# =============================================================================
+
+# SFTP Subsystem
+# Security: Use internal-sftp for chrooted environments if needed
+Subsystem sftp /usr/lib/openssh/sftp-server
+
+# For chrooted SFTP (uncomment if needed):
+#Subsystem sftp internal-sftp
+
+# =============================================================================
+# PER-USER/GROUP OVERRIDES
+# =============================================================================
+
+# Example:  Restrict SFTP-only users to chrooted directory
+#Match Group sftponly
+#       ChrootDirectory /var/sftp/%u
+#       ForceCommand internal-sftp
+#       AllowTcpForwarding no
+#       X11Forwarding no
+#       PermitTunnel no
+
+# Example: Allow specific user to forward
+#Match User devops
+#       AllowTcpForwarding yes
+
+# Example: Restrict emergency access account
+#Match User emergency
+#       PasswordAuthentication yes
+#       AuthenticationMethods password
+#       PermitRootLogin no
+
+# =============================================================================
+# END OF CONFIGURATION
+# =============================================================================
