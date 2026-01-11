@@ -9,11 +9,11 @@ Complete guide for securing and hardening servers across Windows and Linux platf
 ### Phase 1: Foundation (Days 1-5)
 
 #### Day 2: SSH Hardening
-- [SSH Hardening - Windows Server](https://github.com/Pratikchandrathakur/AuditBot/blob/main/docs/firewalls-windows-server.md)
+- [SSH Hardening - Windows Server](https://github.com/Pratikchandrathakur/AuditBot/blob/main/configs/prod_ready_sshd/ssh-hardening_windows_server.md)
 
 #### Day 5: Firewalls
 - [Firewalls - Linux/Ubuntu (UFW)](https://github.com/Pratikchandrathakur/AuditBot/blob/main/docs/hardening_firewall.md)
-- [Firewalls - Windows Server](https://github.com/Pratikchandrathakur/AuditBot/blob/main/docs/day-5-firewalls-windows-server.md)
+- [Firewalls - Windows Server](https://github.com/Pratikchandrathakur/AuditBot/blob/main/docs/firewalls-windows-server.md)
 
 ---
 
