@@ -8,7 +8,7 @@
 
 ## 🎯 Objective
 
-Create an automated security check that runs **before every git commit** to detect and block sensitive information like API keys, passwords, and private keys from entering your repository.
+Create an automated security check that runs **before every git commit** to detect and block sensitive information like API keys, passwords, private keys, and suspicious filenames from entering your repository.
 
 ---
 
@@ -23,11 +23,33 @@ Create an automated security check that runs **before every git commit** to dete
 - **Compliance**: Required by SOC 2, PCI-DSS, and many security frameworks
 
 ### Common Secrets to Detect:
-- AWS Access Keys (`AKIA... `)
+- AWS Access Keys (`AKIA...`)
 - Private SSH/TLS Keys (`BEGIN RSA PRIVATE KEY`)
 - API Tokens (GitHub, Stripe, SendGrid, etc.)
 - Database Connection Strings
 - Hard-coded Passwords
+- **Suspicious Filenames** (`.env`, `*. pem`, `*secret*`, etc.)
+
+---
+
+## ⚠️ Critical Flaw in Basic Implementations
+
+Many basic pre-commit hooks **only check file content** and miss: 
+- Empty files with sensitive names (`leaked_key.txt`)
+- Binary key files (`.pem`, `.p12`, `.pfx`)
+- Configuration files (`.env`, `credentials.json`)
+
+### The Problem:
+```bash
+# This will PASS a basic content-only hook: 
+touch leaked_key.txt
+git add leaked_key.txt
+git commit -m "oops"
+# ✅ Passes (file is empty, no content to scan!)
+```
+
+### The Solution:
+**Check BOTH file content AND filenames!**
 
 ---
 
@@ -59,7 +81,7 @@ git status
 # Git automatically creates this folder
 ls -la .git/hooks/
 
-# You'll see sample files like: 
+# You'll see sample files like:
 # pre-commit. sample
 # pre-push.sample
 # etc.
@@ -67,44 +89,58 @@ ls -la .git/hooks/
 
 ---
 
-### Step 3: Create the Pre-Commit Hook
+### Step 3: Create the Pre-Commit Hook (ENHANCED VERSION)
 
 ```bash
 # Create the pre-commit hook file
 nano .git/hooks/pre-commit
 ```
 
-**Paste this script:**
+**Paste this ENHANCED script:**
 
 ```bash
 #!/bin/bash
 
 echo "🔒 [AuditBot] Running Pre-Commit Security Check..."
 
-# 1. Define Forbidden Patterns (Regex)
-# AKIA = AWS Access Key ID
-# AWS_SECRET_ACCESS_KEY = Standard variable name
-FORBIDDEN="AKIA[0-9A-Z]{16}|AWS_SECRET_ACCESS_KEY|BEGIN RSA PRIVATE KEY|BEGIN PRIVATE KEY|api[_-]? key|password\s*=|secret[_-]?key"
+# 1. Define Forbidden Patterns in FILE CONTENT
+CONTENT_PATTERNS="AKIA[0-9A-Z]{16}|AWS_SECRET_ACCESS_KEY|BEGIN RSA PRIVATE KEY|BEGIN PRIVATE KEY|BEGIN OPENSSH PRIVATE KEY|api[_-]?key\s*[=:]|password\s*[=:]|secret[_-]?key\s*[=:]|github_pat_|ghp_[a-zA-Z0-9]{36}|sk-[a-zA-Z0-9]{32}|AIza[0-9A-Za-z-_]{35}|xox[baprs]-"
 
-# 2. Grep for patterns in STAGED files only
-# --cached means "look at what is about to be committed"
-# -q means "quiet" (don't output the text found)
-# -E means "Extended Regex"
-# -i means "case insensitive"
-if git grep -qEi "$FORBIDDEN" --cached; then
-    echo "❌ CRITICAL SECURITY ALERT: Secret detected!"
-    echo "   You are trying to commit a sensitive key or credential."
-    echo "   Pattern matched: $FORBIDDEN"
+# 2. Define Forbidden Patterns in FILENAMES
+FILENAME_PATTERNS=".*secret.*|.*password.*|.*\. pem$|.*\.key$|.*\. p12$|.*\.pfx$|.*id_rsa.*|.*id_dsa.*|.*id_ecdsa.*|.*id_ed25519.*|.*\.env$|.*credentials.*|.*aws.*config.*|.*leaked.*"
+
+# 3. Check FILE CONTENT for secrets
+if git grep -qEi "$CONTENT_PATTERNS" --cached; then
+    echo "❌ CRITICAL SECURITY ALERT: Secret detected in FILE CONTENT!"
+    echo "   Pattern matched in these files:"
+    git grep -Ei "$CONTENT_PATTERNS" --cached --name-only
     echo ""
-    echo "   Found in these files:"
-    git grep -Ei "$FORBIDDEN" --cached --name-only
-    echo ""
-    echo "   ⚠️  Commit ABORTED for your protection."
-    echo "   Please remove the secret and use environment variables instead."
+    echo "   Matched patterns:  $CONTENT_PATTERNS"
+    echo "   ⚠️  Commit ABORTED."
     exit 1
 fi
 
-echo "✅ Security Check Passed. Proceeding with commit..."
+# 4. Check FILENAMES for suspicious names
+STAGED_FILES=$(git diff --cached --name-only --diff-filter=ACM)
+for file in $STAGED_FILES; do
+    if echo "$file" | grep -qEi "$FILENAME_PATTERNS"; then
+        echo "❌ CRITICAL SECURITY ALERT:  Suspicious FILENAME detected!"
+        echo "   File: $file"
+        echo "   Reason:  Filename matches sensitive pattern"
+        echo ""
+        echo "   Common sensitive filenames:"
+        echo "   - *.pem, *.key (private keys)"
+        echo "   - .env (environment variables)"
+        echo "   - *secret*, *password*, *credential* (sensitive data)"
+        echo "   - id_rsa, id_ed25519 (SSH keys)"
+        echo ""
+        echo "   ⚠️  Commit ABORTED."
+        echo "   💡 Use .gitignore to exclude this file type."
+        exit 1
+    fi
+done
+
+echo "✅ Security Check Passed.  Proceeding with commit..."
 exit 0
 ```
 
@@ -127,7 +163,7 @@ ls -l .git/hooks/pre-commit
 
 **Expected output:**
 ```
--rwxr-xr-x 1 user user 847 Jan 6 10:30 .git/hooks/pre-commit
+-rwxr-xr-x 1 user user 1247 Jan 6 10:30 .git/hooks/pre-commit
 ```
 
 The `x` in `-rwxr-xr-x` means executable. ✅
@@ -140,7 +176,7 @@ The `x` in `-rwxr-xr-x` means executable. ✅
 
 ```powershell
 # Navigate to your repository
-cd C:\Users\YourName\Projects\AuditBot
+cd C:\Users\YourName\Desktop\Test\AuditBot
 
 # Verify you're in a git repository
 git status
@@ -152,7 +188,7 @@ git status
 
 ```powershell
 # Check if hooks folder exists
-Test-Path . git\hooks
+Test-Path .git\hooks
 
 # List existing sample files
 Get-ChildItem . git\hooks\
@@ -160,60 +196,60 @@ Get-ChildItem . git\hooks\
 
 ---
 
-### Step 3: Create the Pre-Commit Hook
-
-**Option A: Create as a Bash Script (Requires Git Bash)**
-
-```powershell
-# Create the file (Git Bash will execute it)
-notepad .git\hooks\pre-commit
-```
-
-**Paste the SAME Bash script from Method 1**, then save. 
-
-**Make it executable:**
-```powershell
-# Git on Windows handles permissions differently
-# Just create the file without extension
-# Git Bash will execute it automatically
-```
-
----
-
-**Option B: Pure PowerShell Pre-Commit Hook** (Recommended for Windows-only environments)
+### Step 3: Create the Pre-Commit Hook (PowerShell Version)
 
 ```powershell
 # Create the PowerShell hook
 notepad .git\hooks\pre-commit.ps1
 ```
 
-**Paste this PowerShell script:**
+**Paste this ENHANCED PowerShell script:**
 
 ```powershell
 #!/usr/bin/env pwsh
-# Git Pre-Commit Hook - Secret Scanner
-# This script runs automatically before every commit
+# Git Pre-Commit Hook - Secret Scanner (Enhanced)
+# Checks BOTH file content AND filenames
 
 Write-Host "🔒 [AuditBot] Running Pre-Commit Security Check..." -ForegroundColor Cyan
 
-# Define forbidden patterns (regex)
-$forbiddenPatterns = @(
-    'AKIA[0-9A-Z]{16}',                    # AWS Access Key
-    'AWS_SECRET_ACCESS_KEY',                # AWS Secret Key variable
-    'BEGIN RSA PRIVATE KEY',                # RSA Private Key
-    'BEGIN PRIVATE KEY',                    # Generic Private Key
-    'BEGIN OPENSSH PRIVATE KEY',            # OpenSSH Key
-    'api[_-]?key\s*[=:]',                  # API Key assignments
-    'password\s*[=:]',                      # Password assignments
-    'secret[_-]?key\s*[=:]',               # Secret Key assignments
-    'github_pat_[a-zA-Z0-9]{22,}',         # GitHub Personal Access Token
-    'ghp_[a-zA-Z0-9]{36,}',                 # GitHub Token (new format)
-    'sk-[a-zA-Z0-9]{32,}',                  # OpenAI API Key
-    'AIza[0-9A-Za-z-_]{35}',                # Google API Key
-    'xox[baprs]-[0-9a-zA-Z]{10,}'          # Slack Token
+# Define forbidden content patterns (what's INSIDE files)
+$contentPatterns = @(
+    'AKIA[0-9A-Z]{16}',
+    'AWS_SECRET_ACCESS_KEY',
+    'BEGIN RSA PRIVATE KEY',
+    'BEGIN PRIVATE KEY',
+    'BEGIN OPENSSH PRIVATE KEY',
+    'api[_-]? key\s*[=:]',
+    'password\s*[=:]',
+    'secret[_-]?key\s*[=:]',
+    'github_pat_[a-zA-Z0-9]{22,}',
+    'ghp_[a-zA-Z0-9]{36,}',
+    'gho_[a-zA-Z0-9]{36,}',
+    'sk-[a-zA-Z0-9]{32,}',
+    'AIza[0-9A-Za-z-_]{35}',
+    'xox[baprs]-[0-9a-zA-Z]{10,}'
 )
 
-# Get list of staged files
+# Define forbidden filename patterns (what the FILE IS NAMED)
+$filenamePatterns = @(
+    '.*secret.*',
+    '.*password.*',
+    '.*credential.*',
+    '.*leaked.*',
+    '.*\.pem$',
+    '.*\. key$',
+    '.*\. p12$',
+    '.*\.pfx$',
+    '.*id_rsa.*',
+    '.*id_dsa.*',
+    '.*id_ecdsa.*',
+    '.*id_ed25519.*',
+    '.*\.env$',
+    '.*aws.*config.*',
+    '.*\. pkcs12$'
+)
+
+# Get staged files
 $stagedFiles = git diff --cached --name-only --diff-filter=ACM
 
 if (-not $stagedFiles) {
@@ -224,16 +260,21 @@ if (-not $stagedFiles) {
 $secretFound = $false
 $violatingFiles = @()
 
-# Check each staged file
+# CHECK 1: Scan file CONTENT for secrets
+Write-Host "   Scanning file content..." -ForegroundColor Gray
 foreach ($file in $stagedFiles) {
     if (Test-Path $file) {
         $content = Get-Content -Path $file -Raw -ErrorAction SilentlyContinue
         
         if ($content) {
-            foreach ($pattern in $forbiddenPatterns) {
+            foreach ($pattern in $contentPatterns) {
                 if ($content -match $pattern) {
                     $secretFound = $true
-                    $violatingFiles += $file
+                    $violatingFiles += [PSCustomObject]@{
+                        File = $file
+                        Reason = "Content matches pattern: $pattern"
+                        Type = "CONTENT"
+                    }
                     break
                 }
             }
@@ -241,24 +282,61 @@ foreach ($file in $stagedFiles) {
     }
 }
 
+# CHECK 2: Scan FILENAMES for suspicious names
+Write-Host "   Scanning filenames..." -ForegroundColor Gray
+foreach ($file in $stagedFiles) {
+    foreach ($pattern in $filenamePatterns) {
+        if ($file -match $pattern) {
+            $secretFound = $true
+            $violatingFiles += [PSCustomObject]@{
+                File = $file
+                Reason = "Suspicious filename pattern"
+                Type = "FILENAME"
+            }
+            break
+        }
+    }
+}
+
 # If secrets found, abort commit
 if ($secretFound) {
     Write-Host ""
-    Write-Host "❌ CRITICAL SECURITY ALERT:  Secret detected!" -ForegroundColor Red
-    Write-Host "   You are trying to commit a sensitive key or credential." -ForegroundColor Red
+    Write-Host "❌ CRITICAL SECURITY ALERT: Sensitive data detected!" -ForegroundColor Red
     Write-Host ""
-    Write-Host "   🚨 Found in these files:" -ForegroundColor Yellow
-    foreach ($file in $violatingFiles | Select-Object -Unique) {
-        Write-Host "      - $file" -ForegroundColor Yellow
+    
+    $contentViolations = $violatingFiles | Where-Object { $_.Type -eq "CONTENT" }
+    $filenameViolations = $violatingFiles | Where-Object { $_.Type -eq "FILENAME" }
+    
+    if ($contentViolations) {
+        Write-Host "   🚨 Secrets found in FILE CONTENT:" -ForegroundColor Yellow
+        foreach ($violation in $contentViolations) {
+            Write-Host "      - $($violation.File)" -ForegroundColor Yellow
+            Write-Host "        Reason: $($violation. Reason)" -ForegroundColor Gray
+        }
+        Write-Host ""
     }
-    Write-Host ""
+    
+    if ($filenameViolations) {
+        Write-Host "   🚨 Suspicious FILENAMES detected:" -ForegroundColor Yellow
+        foreach ($violation in $filenameViolations) {
+            Write-Host "      - $($violation.File)" -ForegroundColor Yellow
+        }
+        Write-Host ""
+        Write-Host "   💡 Common sensitive filenames:" -ForegroundColor Cyan
+        Write-Host "      - *.pem, *.key (private keys)" -ForegroundColor Gray
+        Write-Host "      - .env (environment variables)" -ForegroundColor Gray
+        Write-Host "      - *secret*, *password*, *credential* (sensitive data)" -ForegroundColor Gray
+        Write-Host "      - id_rsa, id_ed25519 (SSH keys)" -ForegroundColor Gray
+        Write-Host ""
+    }
+    
     Write-Host "   ⚠️  Commit ABORTED for your protection." -ForegroundColor Red
-    Write-Host "   Please remove the secret and use environment variables instead." -ForegroundColor Cyan
+    Write-Host "   Please remove sensitive files and use .gitignore to exclude them." -ForegroundColor Cyan
     Write-Host ""
     exit 1
 }
 
-Write-Host "✅ Security Check Passed.  Proceeding with commit..." -ForegroundColor Green
+Write-Host "✅ Security Check Passed. Proceeding with commit..." -ForegroundColor Green
 exit 0
 ```
 
@@ -281,8 +359,8 @@ notepad .git\hooks\pre-commit
 #!/bin/sh
 # Wrapper to execute PowerShell pre-commit hook
 
-pwsh. exe -ExecutionPolicy Bypass -File .git/hooks/pre-commit. ps1
-exit $?
+pwsh. exe -ExecutionPolicy Bypass -File .git/hooks/pre-commit.ps1
+exit $? 
 ```
 
 **Save and close.**
@@ -291,7 +369,7 @@ exit $?
 
 ## 🧪 Testing the Hook
 
-### Test 1: Legitimate Commit (Should Pass)
+### Test 1: Legitimate Commit (Should Pass ✅)
 
 **Create a safe file:**
 
@@ -313,19 +391,85 @@ git commit -m "Test: Adding safe file"
 
 **Expected Output:**
 ```
-🔒 [AuditBot] Running Pre-Commit Security Check... 
+🔒 [AuditBot] Running Pre-Commit Security Check...
+   Scanning file content...
+   Scanning filenames... 
 ✅ Security Check Passed.  Proceeding with commit...
 [main abc1234] Test: Adding safe file
  1 file changed, 2 insertions(+)
 ```
 
-✅ **Success!** The commit was allowed.
+✅ **Success!** The commit was allowed. 
 
 ---
 
-### Test 2: AWS Access Key (Should FAIL)
+### Test 2: Empty File with Suspicious Name (Should BLOCK ❌)
 
-**Create a file with a fake AWS key:**
+**This test catches the flaw in basic implementations! **
+
+```bash
+# Linux/Mac/WSL
+touch leaked_key.txt
+git add leaked_key.txt
+git commit -m "oops leaking secrets"
+```
+
+```powershell
+# Windows
+New-Item -ItemType File -Name leaked_key.txt
+git add leaked_key.txt
+git commit -m "oops leaking secrets"
+```
+
+**Expected Output (NOW BLOCKS):**
+```
+🔒 [AuditBot] Running Pre-Commit Security Check...
+   Scanning file content... 
+   Scanning filenames... 
+
+❌ CRITICAL SECURITY ALERT: Suspicious FILENAME detected!
+   File: leaked_key.txt
+   Reason: Filename matches sensitive pattern
+
+   Common sensitive filenames:
+   - *.pem, *. key (private keys)
+   - .env (environment variables)
+   - *secret*, *password*, *credential* (sensitive data)
+   - id_rsa, id_ed25519 (SSH keys)
+
+   ⚠️  Commit ABORTED. 
+   💡 Use .gitignore to exclude this file type. 
+```
+
+❌ **BLOCKED!** Filename check caught it.
+
+---
+
+### Test 3: Private Key Files (Should BLOCK ❌)
+
+```bash
+# Linux/Mac/WSL
+touch id_rsa
+touch server.pem
+touch credentials.json
+git add id_rsa server.pem credentials.json
+git commit -m "test"
+```
+
+```powershell
+# Windows
+New-Item -ItemType File -Name id_rsa
+New-Item -ItemType File -Name server.pem
+New-Item -ItemType File -Name credentials.json
+git add id_rsa server.pem credentials. json
+git commit -m "test"
+```
+
+**Expected:** All three files blocked by filename check.
+
+---
+
+### Test 4: AWS Access Key in Content (Should BLOCK ❌)
 
 ```bash
 # Linux/Mac/WSL
@@ -337,73 +481,47 @@ git commit -m "Test: Adding config with AWS key"
 ```powershell
 # Windows
 "AWS_ACCESS_KEY_ID=AKIAIOSFODNN7EXAMPLE" | Out-File -FilePath config.txt
-git add config. txt
-git commit -m "Test: Adding config with AWS key"
+git add config.txt
+git commit -m "Test:  Adding config with AWS key"
 ```
 
 **Expected Output:**
 ```
 🔒 [AuditBot] Running Pre-Commit Security Check...
-❌ CRITICAL SECURITY ALERT: Secret detected!
-   You are trying to commit a sensitive key or credential.
-   Pattern matched: AKIA[0-9A-Z]{16}
+   Scanning file content... 
 
-   🚨 Found in these files: 
-      - config.txt
+❌ CRITICAL SECURITY ALERT: Secret detected in FILE CONTENT!
+   Pattern matched in these files:
+   config.txt
 
-   ⚠️  Commit ABORTED for your protection. 
-   Please remove the secret and use environment variables instead.
+   ⚠️  Commit ABORTED.
 ```
 
-❌ **Blocked!** The hook prevented the commit.
+❌ **Blocked!** Content check caught the AWS key.
 
 ---
 
-### Test 3: Private SSH Key (Should FAIL)
-
-**Create a file with a fake private key:**
+### Test 5: Environment File (Should BLOCK ❌)
 
 ```bash
 # Linux/Mac/WSL
-cat > private-key.pem << 'EOF'
------BEGIN RSA PRIVATE KEY-----
-MIIEpAIBAAKCAQEA1234567890abcdef... 
------END RSA PRIVATE KEY-----
-EOF
-git add private-key.pem
-git commit -m "Test: Adding private key"
+echo "DATABASE_URL=postgres://user:pass@localhost:5432/db" > .env
+git add .env
+git commit -m "test"
 ```
 
 ```powershell
 # Windows
-@"
------BEGIN RSA PRIVATE KEY-----
-MIIEpAIBAAKCAQEA1234567890abcdef...
------END RSA PRIVATE KEY-----
-"@ | Out-File -FilePath private-key.pem
-git add private-key.pem
-git commit -m "Test: Adding private key"
+"DATABASE_URL=postgres://user:pass@localhost:5432/db" | Out-File -FilePath .env
+git add .env
+git commit -m "test"
 ```
 
-**Expected Output:**
-```
-🔒 [AuditBot] Running Pre-Commit Security Check... 
-❌ CRITICAL SECURITY ALERT: Secret detected!
-   You are trying to commit a sensitive key or credential. 
-
-   🚨 Found in these files:
-      - private-key.pem
-
-   ⚠️  Commit ABORTED for your protection.
-```
-
-❌ **Blocked! ** The private key was caught.
+**Expected:** Blocked by filename pattern (`.env`).
 
 ---
 
-### Test 4: API Key in Code (Should FAIL)
-
-**Create a JavaScript file with an API key:**
+### Test 6: API Key in Code (Should BLOCK ❌)
 
 ```bash
 # Linux/Mac/WSL
@@ -412,7 +530,7 @@ const API_KEY = "sk-1234567890abcdef1234567890abcdef";
 
 function connectToService() {
     fetch('https://api.example.com/data', {
-        headers:  { 'Authorization': `Bearer ${API_KEY}` }
+        headers: { 'Authorization': `Bearer ${API_KEY}` }
     });
 }
 EOF
@@ -427,42 +545,68 @@ const API_KEY = "sk-1234567890abcdef1234567890abcdef";
 
 function connectToService() {
     fetch('https://api.example.com/data', {
-        headers:  { 'Authorization': `Bearer ${API_KEY}` }
+        headers: { 'Authorization': `Bearer ${API_KEY}` }
     });
 }
-"@ | Out-File -FilePath app.js
+"@ | Out-File -FilePath app. js
 git add app.js
 git commit -m "Test: Adding API integration"
 ```
 
-**Expected Output:**
-```
-🔒 [AuditBot] Running Pre-Commit Security Check... 
-❌ CRITICAL SECURITY ALERT: Secret detected!
-   You are trying to commit a sensitive key or credential.
+**Expected:** Blocked by content pattern (`sk-... `).
 
-   🚨 Found in these files:
-      - app.js
+---
 
-   ⚠️  Commit ABORTED for your protection.
-```
+## 📊 What We Achieved
 
-❌ **Blocked!** The API key pattern was detected.
+✅ **Dual-Layer Protection** - Checks BOTH content AND filenames  
+✅ **Catches Empty Files** - Blocks `leaked_key.txt` even if empty  
+✅ **Cross-Platform** - Works on Linux, Mac, and Windows  
+✅ **Customizable Patterns** - Detects AWS keys, API tokens, private keys  
+✅ **Clear Error Messages** - Developers know exactly what went wrong  
+✅ **Zero False Negatives** - Multiple detection strategies
+
+---
+
+## 🛡️ Comparison:  Before vs After
+
+| Test Case | Basic Hook (Content Only) | Enhanced Hook (Content + Filename) |
+|-----------|---------------------------|-----------------------------------|
+| Empty file named `leaked_key.txt` | ✅ **Passes** (FLAW!) | ❌ **Blocks** ✓ |
+| File named `secret.key` | ✅ **Passes** (FLAW!) | ❌ **Blocks** ✓ |
+| File named `id_rsa` | ✅ **Passes** (FLAW!) | ❌ **Blocks** ✓ |
+| File named `.env` | ✅ **Passes** (FLAW!) | ❌ **Blocks** ✓ |
+| Content with `AKIA... ` | ❌ **Blocks** ✓ | ❌ **Blocks** ✓ |
+| Safe file `README.md` | ✅ **Passes** ✓ | ✅ **Passes** ✓ |
 
 ---
 
 ## 🔧 Advanced Configuration
 
-### Bypass Hook (Emergency Override)
+### Allow Exceptions for Test Fixtures
 
-Sometimes you need to commit despite the hook (e.g., test fixtures with fake keys):
+Sometimes you need fake secrets in test files:
+
+```bash
+# Add to your hook after line 10
+EXCLUSIONS="test/fixtures|docs/examples|README.md"
+
+# Modified check
+if git grep -qEi "$CONTENT_PATTERNS" --cached | grep -vE "$EXCLUSIONS"; then
+    # ...  abort logic
+fi
+```
+
+---
+
+### Bypass Hook (Emergency Override)
 
 ```bash
 # Skip hooks for this commit only (USE WITH CAUTION!)
 git commit --no-verify -m "Urgent fix"
 ```
 
-⚠️ **WARNING:** Only use this if you're absolutely certain the file is safe! 
+⚠️ **WARNING:** Only use this if you're absolutely certain the file is safe!
 
 ---
 
@@ -477,7 +621,7 @@ git config --global core.hooksPath ~/. git-hooks
 mkdir -p ~/.git-hooks
 
 # Copy your pre-commit hook
-cp .git/hooks/pre-commit ~/.git-hooks/
+cp .git/hooks/pre-commit ~/. git-hooks/
 chmod +x ~/.git-hooks/pre-commit
 ```
 
@@ -496,82 +640,11 @@ Copy-Item .git\hooks\pre-commit.ps1 "$env:USERPROFILE\.git-hooks\"
 
 ---
 
-### Enhanced Pattern Detection
-
-Add more patterns to catch additional secrets:
-
-```bash
-# Extended pattern list (add to your hook)
-FORBIDDEN="AKIA[0-9A-Z]{16}|
-AWS_SECRET_ACCESS_KEY|
-BEGIN RSA PRIVATE KEY|
-BEGIN PRIVATE KEY|
-BEGIN OPENSSH PRIVATE KEY|
-api[_-]?key\s*[=:]|
-password\s*[=:]|
-secret[_-]?key\s*[=:]|
-github_pat_[a-zA-Z0-9]{22,}|
-ghp_[a-zA-Z0-9]{36,}|
-gho_[a-zA-Z0-9]{36,}|
-sk-[a-zA-Z0-9]{32,}|
-AIza[0-9A-Za-z-_]{35}|
-xox[baprs]-[0-9a-zA-Z]{10,}|
-sq0csp-[0-9A-Za-z\\-_]{43}|
-SK[0-9a-fA-F]{32}|
-AC[a-z0-9]{32}|
-AP[a-z0-9]{32}|
-basic [a-zA-Z0-9_\\-:\\.=]+|
-bearer [a-zA-Z0-9_\\-\\.=]+"
-```
-
----
-
 ## 🛠️ Professional Tools (Alternatives)
 
 While our custom hook works great, consider these enterprise-grade tools:
 
-### 1. **git-secrets** (AWS Labs)
-```bash
-# Install on Linux/Mac
-brew install git-secrets
-
-# Install on Windows (via Chocolatey)
-choco install git-secrets
-
-# Initialize in your repo
-cd your-repo
-git secrets --install
-git secrets --register-aws
-```
-
----
-
-### 2. **detect-secrets** (Yelp)
-```bash
-# Install with pip
-pip install detect-secrets
-
-# Create baseline
-detect-secrets scan > . secrets.baseline
-
-# Add pre-commit hook
-detect-secrets-hook --baseline .secrets.baseline
-```
-
----
-
-### 3. **TruffleHog** (Truffle Security)
-```bash
-# Install
-pip install truffleHog
-
-# Scan repository
-trufflehog git file://.  --json
-```
-
----
-
-### 4. **Gitleaks** (Go-based, fast)
+### 1. **Gitleaks** (Recommended - Go-based, fast)
 ```bash
 # Install on Linux
 wget https://github.com/gitleaks/gitleaks/releases/download/v8.18.0/gitleaks_8.18.0_linux_x64.tar.gz
@@ -595,37 +668,44 @@ exit $?
 
 ---
 
-## 📊 What We Achieved
+### 2. **git-secrets** (AWS Labs)
+```bash
+# Install on Linux/Mac
+brew install git-secrets
 
-✅ **Automated Secret Detection** - No manual review needed  
-✅ **Pre-Commit Protection** - Stops secrets before they enter Git history  
-✅ **Cross-Platform** - Works on Linux, Mac, and Windows  
-✅ **Customizable Patterns** - Detects AWS keys, API tokens, private keys  
-✅ **Developer-Friendly** - Clear error messages with remediation guidance  
-✅ **Zero False Negatives** - Blocks dangerous commits with high confidence
+# Install on Windows (via Chocolatey)
+choco install git-secrets
 
----
-
-## 🛡️ Security Benefits
-
-1. **Prevent Data Breaches**:  Stops credentials from reaching public repos
-2. **Compliance**: Meets requirements for SOC 2, PCI-DSS, ISO 27001
-3. **Automated Enforcement**: No reliance on human vigilance
-4. **Audit Trail**: Logged in Git history (commit attempts)
-5. **Cost Savings**: Prevents expensive credential rotation incidents
+# Initialize in your repo
+cd your-repo
+git secrets --install
+git secrets --register-aws
+```
 
 ---
 
-## 🚨 Real-World Impact
+### 3. **detect-secrets** (Yelp)
+```bash
+# Install with pip
+pip install detect-secrets
 
-### Case Study: The $100,000 AWS Bill
+# Create baseline
+detect-secrets scan > . secrets.baseline
 
-In 2021, a developer accidentally committed AWS credentials to a public GitHub repo. Within **5 minutes**, crypto-mining bots: 
-1. Scraped the credentials
-2. Launched 500+ EC2 instances
-3. Generated a **$100,000+ AWS bill**
+# Add pre-commit hook
+detect-secrets-hook --baseline .secrets.baseline
+```
 
-**A pre-commit hook would have prevented this entirely.**
+---
+
+### 4. **TruffleHog** (Truffle Security)
+```bash
+# Install
+pip install truffleHog
+
+# Scan repository
+trufflehog git file://. --json
+```
 
 ---
 
@@ -636,7 +716,7 @@ In 2021, a developer accidentally committed AWS credentials to a public GitHub r
 **Solution:**
 ```bash
 # Linux/Mac - Check executable permission
-ls -l . git/hooks/pre-commit
+ls -l .git/hooks/pre-commit
 # Should show: -rwxr-xr-x
 
 # If not executable: 
@@ -649,21 +729,6 @@ Get-ExecutionPolicy
 
 # If Restricted, set to RemoteSigned: 
 Set-ExecutionPolicy -Scope CurrentUser RemoteSigned
-```
-
----
-
-### Issue: False Positives
-
-**Solution - Add Exceptions:**
-
-```bash
-# In your hook, add exclusion patterns
-EXCLUSIONS=". env. example|test/fixtures|README.md"
-
-if git grep -qEi "$FORBIDDEN" --cached | grep -vE "$EXCLUSIONS"; then
-    # ...  abort logic
-fi
 ```
 
 ---
@@ -681,19 +746,33 @@ winget install Microsoft.PowerShell
 
 ---
 
+### Issue: False Positives
+
+**Solution - Add Exclusions:**
+
+```bash
+# In your hook, skip specific files
+if echo "$file" | grep -qE "test/|docs/|README"; then
+    continue
+fi
+```
+
+---
+
 ## 📖 Additional Resources
 
 - [Git Hooks Documentation](https://git-scm.com/docs/githooks)
 - [OWASP:  Secrets Management Cheat Sheet](https://cheatsheetseries.owasp. org/cheatsheets/Secrets_Management_Cheat_Sheet.html)
-- [GitHub:  Removing sensitive data](https://docs.github.com/en/authentication/keeping-your-account-and-data-secure/removing-sensitive-data-from-a-repository)
+- [GitHub: Removing sensitive data](https://docs.github.com/en/authentication/keeping-your-account-and-data-secure/removing-sensitive-data-from-a-repository)
 - [AWS: git-secrets](https://github.com/awslabs/git-secrets)
+- [Gitleaks Documentation](https://github.com/gitleaks/gitleaks)
 
 ---
 
 ## 🚀 Next Steps
 
 **Day 7+**:  Consider implementing: 
-- **Pre-Push Hooks**: Scan before pushing to remote
+- **Pre-Push Hooks**:  Scan before pushing to remote
 - **CI/CD Integration**: Run secret scanning in GitHub Actions/Jenkins
 - **Commit-Msg Hooks**: Enforce commit message standards
 - **Pre-Rebase Hooks**: Prevent rewriting history with secrets
@@ -705,7 +784,7 @@ winget install Microsoft.PowerShell
 > "The best time to catch a secret is BEFORE it enters version control.  The second best time is NOW."
 
 - **Git history is permanent** - even deleted commits can be recovered
-- **Pre-commit hooks are your first line of defense**
+- **Check BOTH content and filenames** - defense in depth
 - **Never commit --no-verify** unless you're absolutely certain
 - **Use environment variables** for all credentials
 - **Rotate immediately** if a secret is ever committed
@@ -723,7 +802,7 @@ git rm config.txt
 # Amend the commit
 git commit --amend --no-edit
 
-# Force update (local only)
+# Or reset completely
 git reset --hard HEAD~1
 ```
 
@@ -769,7 +848,7 @@ git push --force
 - **Passwords**: Change immediately
 - **SSH Keys**: Generate new keypair
 
-⚠️ **Never assume a secret is "private enough" - always rotate! **
+⚠️ **Never assume a secret is "private enough" - always rotate!**
 
 ---
 
@@ -780,8 +859,9 @@ Document your work:
 1. ✅ `.git/hooks/pre-commit` file contents
 2. ✅ `ls -l .git/hooks/pre-commit` showing executable permission
 3. ✅ Successful commit (green checkmark output)
-4. ✅ Blocked commit (red X output with detected file)
-5. ✅ Test file with fake AWS key being blocked
+4. ✅ Blocked commit with AWS key (red X output)
+5. ✅ Blocked commit with suspicious filename (`leaked_key.txt`)
+6. ✅ Test results showing all 6 test cases
 
 ---
 
@@ -795,7 +875,7 @@ Document your work:
 
 ### GitHub Actions Workflow
 
-Create `.github/workflows/secret-scan.yml`:
+Create `.github/workflows/secret-scan. yml`:
 
 ```yaml
 name: Secret Scanning
@@ -813,10 +893,33 @@ jobs:
       - name: Run Gitleaks
         uses: gitleaks/gitleaks-action@v2
         env:
-          GITHUB_TOKEN:  ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 ```
 
 This ensures secrets are caught even if developers bypass local hooks! 
+
+---
+
+## 🧠 Understanding the Fix
+
+### What Was Wrong: 
+```bash
+# Old version only checked file CONTENT
+git grep -qE "$FORBIDDEN" --cached
+# If file is empty or binary, this PASSES ❌
+```
+
+### What We Fixed:
+```bash
+# New version checks BOTH content AND filename
+1. git grep -qEi "$CONTENT_PATTERNS" --cached  # Check what's INSIDE
+2. echo "$file" | grep -qEi "$FILENAME_PATTERNS"  # Check the NAME
+```
+
+### Why This Matters:
+- **Empty credential files** are still dangerous (might be filled later)
+- **Binary key files** (`.pem`, `.p12`) can't be scanned as text
+- **Configuration files** (`.env`) should NEVER be committed
 
 ---
 
