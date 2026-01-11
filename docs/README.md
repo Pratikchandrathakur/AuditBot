@@ -12,7 +12,7 @@ Complete guide for securing and hardening servers across Windows and Linux platf
 - [SSH Hardening - Windows Server](https://github.com/Pratikchandrathakur/AuditBot/blob/main/docs/firewalls-windows-server.md)
 
 #### Day 5: Firewalls
-- [Firewalls - Linux/Ubuntu (UFW)]([docs](https://github.com/Pratikchandrathakur/AuditBot/blob/main/docs/day-5-firewalls-ufw.md)
+- [Firewalls - Linux/Ubuntu (UFW)](https://github.com/Pratikchandrathakur/AuditBot/blob/main/docs/hardening_firewall.md)
 - [Firewalls - Windows Server](https://github.com/Pratikchandrathakur/AuditBot/blob/main/docs/day-5-firewalls-windows-server.md)
 
 ---
