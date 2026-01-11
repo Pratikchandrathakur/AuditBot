@@ -869,6 +869,7 @@ Document your work:
 4. ✅ Blocked commit with AWS key in `help.txt` (red X)
 5. ✅ Blocked commit with suspicious filename `leaked_key.txt`
 6. ✅ All 6 test cases passing/blocking correctly
+<img width="1099" height="266" alt="image" src="https://github.com/user-attachments/assets/0a3793ee-a253-4ce9-b2ba-ec309ecd9dd0" />
 
 ---
 
@@ -910,8 +911,6 @@ git add secret. key
 # Filename check catches it! 
 ```
 
-**This is the defense-in-depth approach! **
+**This is the defense-in-depth approach!**
 
 ---
-
-**Next:** Proceed to Day 7 - Dependency Vulnerability Scanning 🚀
