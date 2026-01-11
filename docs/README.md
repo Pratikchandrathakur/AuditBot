@@ -20,7 +20,7 @@ Complete guide for securing and hardening servers across Windows and Linux platf
 ### Phase 2: Development Security (Day 6+)
 
 #### Day 6: Git Security Hooks
-- [Git Pre-Commit Hooks - Secret Scanning](https://github.com/Pratikchandrathakur/AuditBot/blob/main/docs/day-6-git-security-hooks.md)
+- [Git Pre-Commit Hooks - Secret Scanning](https://github.com/Pratikchandrathakur/AuditBot/blob/main/docs/Git-Hooks_README.md)
 
 ---
 
