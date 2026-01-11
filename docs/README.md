@@ -9,18 +9,18 @@ Complete guide for securing and hardening servers across Windows and Linux platf
 ### Phase 1: Foundation (Days 1-5)
 
 #### Day 2: SSH Hardening
-- [SSH Hardening - Windows Server](https://github.com/Pratikchandrathakur/AuditBot/edit/main/docs/firewalls-windows-server.md)
+- [SSH Hardening - Windows Server](https://github.com/Pratikchandrathakur/AuditBot/blob/main/docs/firewalls-windows-server.md)
 
 #### Day 5: Firewalls
-- [Firewalls - Linux/Ubuntu (UFW)]([docs](https://github.com/Pratikchandrathakur/AuditBot/edit/main/docs/day-5-firewalls-ufw.md)
-- [Firewalls - Windows Server](https://github.com/Pratikchandrathakur/AuditBot/edit/main/docs/day-5-firewalls-windows-server.md)
+- [Firewalls - Linux/Ubuntu (UFW)]([docs](https://github.com/Pratikchandrathakur/AuditBot/blob/main/docs/day-5-firewalls-ufw.md)
+- [Firewalls - Windows Server](https://github.com/Pratikchandrathakur/AuditBot/blob/main/docs/day-5-firewalls-windows-server.md)
 
 ---
 
 ### Phase 2: Development Security (Day 6+)
 
 #### Day 6: Git Security Hooks
-- [Git Pre-Commit Hooks - Secret Scanning](https://github.com/Pratikchandrathakur/AuditBot/edit/main/docs/day-6-git-security-hooks.md)
+- [Git Pre-Commit Hooks - Secret Scanning](https://github.com/Pratikchandrathakur/AuditBot/blob/main/docs/day-6-git-security-hooks.md)
 
 ---
 
