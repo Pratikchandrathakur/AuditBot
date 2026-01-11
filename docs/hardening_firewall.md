@@ -8,7 +8,7 @@
 
 ## 🎯 Objective
 
-Lock down server networking to ignore all traffic except SSH (and optionally HTTP/HTTPS for web services). This ensures that only authorized services are accessible from the outside world.
+Lock down server networking to ignore all traffic except SSH (and optionally HTTP/HTTPS for web services). This ensures that only authorized services are accessible from the outside world and make sure you have used the ssh configurations as in the config and ssh should be hardened as well.
 
 ---
 
