@@ -21,7 +21,8 @@ Complete guide for securing and hardening servers across Windows and Linux platf
 
 #### Day 6: Git Security Hooks
 - [Git Pre-Commit Hooks - Secret Scanning](https://github.com/Pratikchandrathakur/AuditBot/blob/main/docs/Git-Hooks_README.md)
-
+#### Day 7: SSL implementation
+- [SSL Implementation](https://github.com/Pratikchandrathakur/AuditBot/blob/main/docs/ssl_implementation.md)
 ---
 
 ## 🗂️ Document Structure
