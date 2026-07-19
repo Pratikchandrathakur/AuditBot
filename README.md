@@ -1,6 +1,6 @@
 # 🛡️ AuditBot (Currently in Active Development)
 
-**Project Status:** 🚧 Alpha Build (Expected Release: feb 30, 2026)
+**Project Status:** 🚧 Alpha Build (Expected Release: Nov 30, 2026)
 
 ## 🎯 Problem Statement
 Manual security audits of AWS environments are slow, error-prone, and unscalable. Small teams often leave S3 buckets public or IAM roles over-privileged because they lack the budget for enterprise tools like Wiz or Prisma Cloud.
